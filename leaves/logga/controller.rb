@@ -1,19 +1,13 @@
 # Controller for the logga leaf.
 
 class Controller < Autumn::Leaf
-  
-  before_filter :check_for_new_day
-  
-  def did_start_up
-    @classes = File.readlines("leaves/logga/classes").map { |line| line.split(" ")}
-    @methods = File.readlines("leaves/logga/methods").map { |line| line.split(" ")}
-  end
       
   def who_command(stem, sender, reply_to, msg)
     if authorized?(sender[:nick])
       person = Person.find_by_name(msg.strip)
       if person
-        stem.message("#{msg}: thanked #{person.votes.positive.count} time(s), rebuked #{person.votes.negative.count} time(s)", sender[:nick])
+        stem.message("#{msg} has been around since #{person.chats.first(:order => "created_at ASC").created_at}")
+        stem.message("#{msg}: thanked #{person.votes.positive.count} time(s)", sender[:nick])
         stem.message("#{msg}: #{person.hostnames.count} hostnames(s)", sender[:nick])
 #        stem.message("#{msg}: #{person.recent_chat_count} recent messages(s), #{} ", sender[:nick])
         unless person.notes.blank?
@@ -33,7 +27,6 @@ class Controller < Autumn::Leaf
       tip.text.gsub!("{nick}", sender[:nick])
       message = tip.text
       message = "#{options[:directed_at]}: #{message}" if options[:directed_at]
-      find_or_create_person("logga").chats.create(:channel => reply_to, :message => message, :message_type => "message")
       stem.message(message, reply_to)          
     else
       stem.message("I could not find that command. If you really want that command, go to http://rails.loglibrary.com/tips/new?command=#{command} and create it!", sender[:nick])
@@ -102,6 +95,7 @@ class Controller < Autumn::Leaf
   end
   
   def lookup_command(stem, sender, reply_to, msg, opts={})
+    return if msg.nil?
     msg = msg.split(" ")[0..-1].map { |a| a.split("#") }.flatten!
     # It's a constant! Oh... and there's nothing else in the string!
     if /^[A-Z]/.match(msg.first) && msg.size == 1
@@ -272,25 +266,15 @@ class Controller < Autumn::Leaf
     User.find_by_login(nick.downcase)
   end
 
-  def check_for_new_day_filter(host, stem, sender, msg, reply_to, opts)
-    @day = Day.find_or_create_by_date(Date.today) if @today!=Date.today
-    @today = Date.today
-    @day.increment!("chats_count")
-  end
-
   def find_or_create_person(name)
     Person.find_or_create_by_name(name)
   end
-
-  def find_or_create_hostname(hostname, person)
-    person.hostnames << Hostname.find_or_create_by_hostname(hostname)
-  end
-
+  
   def did_receive_channel_message(stem, sender, channel, message) 
      person = find_or_create_person(sender[:nick])
      # Does this message clearly reference another person as the first word.
      other_person = /^(.*?)[:|,]/.match(message)
-     other_person = Person.find_by_name(other_person[1]) unless other_person.nil?
+     other_person = find_or_create_person(other_person[1]) unless other_person.nil?
      # try to match a non-existent command which might be a tip
      if m = /^(([^:]+):)?\s?!([^\s]+)\s?(.*)?/.match(message)
        cmd_sym = "#{m[3]}_command".to_sym
@@ -309,9 +293,6 @@ class Controller < Autumn::Leaf
        stem.message(i_am_a_bot, sender[:nick])
      end
 
-     # Log Chat Line
-     chat = person.chats.create(:channel => channel, :message => message, :message_type => "message", :other_person => other_person)
-
      ## Did the person thank another person?
      # Someone was called "a"
      words = message.split(" ") - ["a"]
@@ -321,77 +302,16 @@ class Controller < Autumn::Leaf
        word = word.gsub(",", "")
        # Can't be thanked if count < 100...
        # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
-       people << Person.find_by_name(word, :conditions => "chats_count > 100")
+       people << Person.find_by_name(word)
      end
 
      # Allow voting for multiple people.
      people = people.compact!
-     if /(thank|thx|props|kudos|big ups|10x|cheers)/i.match(chat.message) && chat.message.split(" ").size != 1 && !people.blank?
-       for person in (people - [chat.person] - ["anathematic"])
-         person.votes.create(:chat => chat, :person => chat.person)
+     if /(thank|thx|props|kudos|big ups|10x|cheers)/i.match(message) && message.split(" ").size != 1 && !people.blank?
+       for person in (people - [sender[:nick]])
+         person.increment!(:thanks_count)
        end
      end
-   end
-
-   def someone_did_join_channel(stem, sender, channel)
-     return if sender.nil?
-     person = find_or_create_person(sender[:nick])
-     find_or_create_hostname(sender[:host], person)
-     person.chats.create(:channel => channel, :message_type => "join")  unless sender[:nick] == "logga"
-   end
-
-   def someone_did_leave_channel(stem, sender, channel)
-     person = find_or_create_person(sender[:nick])
-     find_or_create_hostname(sender[:host], person)
-     person.chats.create(:channel => channel, :message_type => "part")
-   end
-
-   def someone_did_quit(stem, sender, message)
-     return if sender.nil?
-     person = find_or_create_person(sender[:nick])
-     find_or_create_hostname(sender[:host], person)
-     person.chats.create(:channel => nil, :message => message, :message_type => "quit")
-   end
-
-   def nick_did_change(stem, person, nick)
-     old_person = person
-     person = find_or_create_person(person[:nick])
-     other_person = find_or_create_person(nick)
-     find_or_create_hostname(old_person[:host], person)
-     find_or_create_hostname(old_person[:host], other_person)
-     person.chats.create(:channel => nil, :person => person, :message_type => "nick-change", :other_person => other_person)
-   end
-
-   def someone_did_kick(stem, kicker, channel, victim, message)
-     person = find_or_create_person(kicker[:nick])
-     find_or_create_hostname(kicker[:host], person)
-     other_person = find_or_create_person(victim)
-     person.chats.create(:channel => channel, :other_person => other_person, :message => message, :message_type => "kick")
-   end
-
-   def someone_did_change_topic(stem, person, channel, topic)
-     person = find_or_create_person(person[:nick])
-     person.chats.create(:channel => channel, :message => topic, :message_type => "topic")
-   end
-
-   def someone_did_gain_privilege(stem, channel, nick, privilege, bestower)
-     person = find_or_create_person(nick)
-     other_person = find_or_create_person(bestower[:nick])
-     person.chats.create(:channel => channel, :message => privilege.to_s, :other_person => other_person, :message_type => "gained_privilege")
-   end
-
-   def someone_did_lose_privilege(stem, channel, nick, privilege, bestower)
-     person = find_or_create_person(nick)
-     other_person = find_or_create_person(bestower[:nick])
-     person.chats.create(:channel => channel, :message => privilege.to_s, :other_person => other_person, :message_type => "lost_privilege")
-   end
-
-   def channel_did_gain_property(stem, channel, property, argument, bestower)
-     person = find_or_create_person(bestower[:nick])
-     person.chats.create(:channel => channel, :message => "#{argument[:mode]} #{argument[:parameter]}", :message_type => "mode")
-   end
- 
-  alias_method :channel_did_lose_property, :channel_did_gain_property
-  
+   end  
     
 end
