@@ -138,20 +138,22 @@ class Controller < Autumn::Leaf
         else
           return [[constants.first], 1]
         end
-      elsif constants.size == 0
-        if entry
-          stem.message("There are no constants that match #{name} and contain #{entry}.", reply_to)
-        else
-          stem.message("There are no constants that match #{name}", reply_to)
-        end
       else
         return [constants, constants.size]
       end
     else
       if entry.nil?
-       display_constants(stem, sender, reply_to, constants, opts)
+        if constants.size == 0
+          stem.message("There are no constants that match #{name}", reply_to) and return
+        else
+          display_constants(stem, sender, reply_to, constants, opts)
+        end
       else
-        return [[constants.first], 1]
+        if constants.size == 0
+          return stem.message("There are no constants that match #{name} and contain a method called #{entry}", reply_to)
+        else
+          return [[constants.first], 1]
+        end
       end
     end
   end  
@@ -168,7 +170,7 @@ class Controller < Autumn::Leaf
     methods = Entry.find_by_sql("select * from entries where name LIKE '%#{for_sql(name.split("").join("%"))}%'") if methods.empty?
     
     if constant
-      methods = methods.select { |m| constants.include?(m.constant) }
+      methods = methods.select { |m| constants.detect { |c| c == m.constant } }
     end
     count = 0
     if methods.size == 1
@@ -179,10 +181,12 @@ class Controller < Autumn::Leaf
         stem.message("#{opts[:directed_at] ? opts[:directed_at] + ":"  : ''} #{count += 1}. (#{method.constant.name}) #{method.name} #{method.url}", reply_to)
       end
       methods
+    elsif methods.size == 0
+      stem.message("#{sender[:nick]}: No methods were found matching #{name}.", reply_to)
     else
-      stem.message("#{sender[:nick]}: Please be more specific.", reply_to)
+      stem.message("#{sender[:nick]}: Please refine your query, we found #{methods.size} methods (threshold is 3).", reply_to)
     end
-    return nil
+    return
   end
   
   def display_constants(stem, sender, reply_to, constants, opts={})
