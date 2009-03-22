@@ -13,7 +13,8 @@ class Controller < Autumn::Leaf
     if authorized?(sender[:nick])
       person = Person.find_by_name(msg.strip)
       if person
-        stem.message("#{msg}: thanked #{person.votes.positive.count} time(s), rebuked #{person.votes.negative.count} time(s)", sender[:nick])
+        stem.message("#{msg} has been around since #{person.chats.first(:order => "created_at ASC").created_at}")
+        stem.message("#{msg}: thanked #{person.votes.positive.count} time(s)", sender[:nick])
         stem.message("#{msg}: #{person.hostnames.count} hostnames(s)", sender[:nick])
 #        stem.message("#{msg}: #{person.recent_chat_count} recent messages(s), #{} ", sender[:nick])
         unless person.notes.blank?
@@ -354,6 +355,7 @@ class Controller < Autumn::Leaf
    end
 
    def nick_did_change(stem, person, nick)
+     return if person.nil?
      old_person = person
      person = find_or_create_person(person[:nick])
      other_person = find_or_create_person(nick)
