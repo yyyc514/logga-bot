@@ -14,9 +14,7 @@ class Controller < Autumn::Leaf
       person = Person.find_by_name(msg.strip)
       if person
         stem.message("#{msg} has been around since #{person.chats.first(:order => "created_at ASC").created_at}")
-        stem.message("#{msg}: thanked #{person.votes.positive.count} time(s)", sender[:nick])
-        stem.message("#{msg}: #{person.hostnames.count} hostnames(s)", sender[:nick])
-#        stem.message("#{msg}: #{person.recent_chat_count} recent messages(s), #{} ", sender[:nick])
+        stem.message("#{msg}: thanked #{person.thanks_count} time(s)", sender[:nick])
         unless person.notes.blank?
           stem.message("Notes for #{msg}: #{person.notes}", sender[:nick])
         end
