@@ -296,7 +296,10 @@ class Controller < Autumn::Leaf
      if message.match(/^logga[:|,]/)
        stem.message(i_am_a_bot, sender[:nick])
      end
-
+     
+     
+     ## Record that the person spoke
+     person = find_or_create_person(sender[:nick])
      ## Did the person thank another person?
      # Someone was called "a"
      words = message.split(" ") - ["a"]
@@ -304,9 +307,7 @@ class Controller < Autumn::Leaf
      for word in words
        word = word.gsub(":", "")
        word = word.gsub(",", "")
-       # Can't be thanked if count < 100...
-       # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
-       people << Person.find_by_name(word)
+       people << Person.find_by_name(word, :conditions => "chat_count > 100")
      end
 
      # Allow voting for multiple people.
