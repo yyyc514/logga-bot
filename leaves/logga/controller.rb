@@ -307,7 +307,7 @@ class Controller < Autumn::Leaf
      for word in words
        word = word.gsub(":", "")
        word = word.gsub(",", "")
-       people << Person.find_by_name(word, :conditions => "chat_count > 100")
+       people << Person.find_by_name(word, :conditions => "chats_count > 100")
      end
 
      # Allow voting for multiple people.
