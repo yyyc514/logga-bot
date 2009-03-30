@@ -73,7 +73,6 @@ class Controller < Autumn::Leaf
     
   def lookup_command(stem, sender, reply_to, msg, opts={})
     parts = msg.split(" ")[0..-1].map { |a| a.split("#") }.flatten!
-    
     results=APILookup.search(msg)
     opts.merge!(:stem => stem, :reply_to => reply_to)
     show_api_results(results,msg, opts)
@@ -199,7 +198,11 @@ class Controller < Autumn::Leaf
          tip_command(stem,sender,channel,m[3], { :directed_at => m[2] })
        end
      end
-     
+
+     if m = /^(([^:]+):)?\s?@(.+)/.match(message)
+       send(:lookup_command, stem, sender, channel, m[3], { :directed_at => m[2] })
+     end
+
      # Don't speak to me!
      if message.match(/^logga[:|,]/)
        stem.message(i_am_a_bot, sender[:nick])
