@@ -20,11 +20,15 @@ class Controller < Autumn::Leaf
     if authorized?(sender[:nick])
       person = Person.find_by_name(msg.strip)
       if person
-        stem.message("#{msg} has been around since #{person.chats.first(:order => "created_at ASC").created_at}")
+        unless person.chats.first.nil?
+          stem.message("#{msg} has been around since #{person.chats.first(:order => "created_at ASC").created_at}")
+        end
         stem.message("#{msg}: thanked #{person.thanks_count} time(s)", sender[:nick])
         unless person.notes.blank?
           stem.message("Notes for #{msg}: #{person.notes}", sender[:nick])
         end
+      else
+        stem.message("Couldn't find anyone named `#{msg.strip}`.", sender[:nick])
       end
     end
   end
@@ -179,17 +183,12 @@ class Controller < Autumn::Leaf
      ## Did the person thank another person?
      # Someone was called "a"
      words = message.split(" ") - ["a"]
-     people = []
-     for word in words
-       word = word.gsub(":", "")
-       word = word.gsub(",", "")
-       # Can't be thanked if count < 100...
-       # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
-       people << Person.find_by_name(word, :conditions => "chats_count > 100")
-     end
+     words.each { |x| x.gsub!(/[:,]/,"") }
+     # Can't be thanked if count < 100...
+     # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
+     people = Person.find_all_by_name(words, :conditions => "chats_count > 100")
 
      # Allow voting for multiple people.
-     people = people.compact!
      if /(thank|thx|props|kudos|big ups|10x|cheers)/i.match(chat.message) && chat.message.split(" ").size != 1 && !people.blank?
        for person in (people - [chat.person] - ["anathematic"])
          person.votes.create(:chat => chat, :person => chat.person)

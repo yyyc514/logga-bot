@@ -4,10 +4,10 @@ ActiveRecord::Schema.define(:version => 20081125045518) do
     t.string   "channel"
     t.string   "message_type"
     t.text     "message"
-    t.datetime "created_at"
     t.integer  "person_id"
     t.integer  "other_person_id"
     t.boolean  "delta",           :default => false
+    t.timestamps
   end
  
   create_table "days", :force => true do |t|
@@ -35,6 +35,7 @@ ActiveRecord::Schema.define(:version => 20081125045518) do
     t.string  "name"
     t.integer "chats_count", :default => 0
     t.text "notes"
+    t.timestamps
   end
  
   create_table "runtimes", :force => true do |t|
