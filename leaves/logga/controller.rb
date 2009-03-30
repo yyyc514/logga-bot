@@ -69,10 +69,6 @@ class Controller < Autumn::Leaf
     end
   end
   
-  def for_sql(string)
-    string
-  end  
-  
   def google_command(stem, sender, reply_to, msg, opts={})
     search("http://www.google.com/search", stem, sender, msg, reply_to, opts)
   end
