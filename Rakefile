@@ -98,7 +98,19 @@ namespace :db do
       repository(dname.to_sym).models.each { |mod| mod.auto_upgrade! dname.to_sym }
     end
   end
+
+  namespace :schema do
+    desc "Load a schema.rb file into the database"
+    task :load => :environment do
+      app=Autumn::Genesis.new
+      app.load_season_settings
+      app.load_databases
+      file = ENV['SCHEMA'] || "#{AL_ROOT}/db/schema.rb"
+      load(file)
+    end
+  end
 end
+
 
 namespace :doc do
   desc "Generate API documentation for Autumn"
