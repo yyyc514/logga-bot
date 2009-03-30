@@ -181,16 +181,15 @@ class Controller < Autumn::Leaf
      chat = person.chats.create(:channel => channel, :message => message, :message_type => "message", :other_person => other_person)
 
      ## Did the person thank another person?
-     # Someone was called "a"
      words = message.split(" ") - ["a"]
-     words.each { |x| x.gsub!(/[:,]/,"") }
-     # Can't be thanked if count < 100...
-     # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
-     people = Person.find_all_by_name(words, :conditions => "chats_count > 100")
-
-     # Allow voting for multiple people.
-     if /(thank|thx|props|kudos|big ups|10x|cheers)/i.match(chat.message) && chat.message.split(" ").size != 1 && !people.blank?
-       for person in (people - [chat.person] - ["anathematic"])
+     if /(thank|thx|props|kudos|my hero|big ups|10x|cheers)/i.match(chat.message) && words.size != 1 
+       # Someone was called "a"
+       words.each { |x| x.gsub!(/[:,]/,"") }
+       # Can't be thanked if count < 100...
+       # stops stuff like "why thanks Radar" coming up for chatter "why" & "Radar" instead of just "Radar"
+       people = Person.find_all_by_name(words, :conditions => "chats_count > 100")
+       # Allow voting for multiple people.
+       for person in (people - [chat.person])
          person.votes.create(:chat => chat, :person => chat.person)
        end
      end
